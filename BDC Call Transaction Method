@@ -1,5 +1,5 @@
 
-*********** CALL TRANSACTION METHOD **************************8
+*********** CALL TRANSACTION METHOD **************************
 
 report ZPRG1_MM01_30
        no standard page heading line-size 255.
