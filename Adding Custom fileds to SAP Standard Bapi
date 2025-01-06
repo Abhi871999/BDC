@@ -1,0 +1,182 @@
+********************** Adding Custom fileds to SAP Standard Bapi ****************************
+
+REPORT ZPRG_UPLOAD_CUSTOM.
+
+PARAMETERS : p_file TYPE localfile.
+
+TYPES : BEGIN OF lty_data,
+       matnr TYPE MATNR,
+       MBRSH TYPE MBRSH,
+       MTART TYPE MTART,
+       MAKTX TYPE MAKTX,
+       meins TYPE meins,
+      zzsystem TYPE zdesystem,
+      zzmtype TYPE zdemtype,
+    END OF lty_data.
+
+ data : lt_data TYPE TABLE OF lty_data,
+        ls_data TYPE lty_data.
+ data : lv_file TYPE String.
+
+ data : ls_headdata TYPE BAPIMATHEAD.
+ data : ls_clientdata TYPE BAPI_MARA.
+ data : ls_clientdatax TYPE BAPI_MARAX.
+ data : lt_Desc TYPE TABLE OF BAPI_MAKT,
+        ls_desc TYPE BAPI_MAKT.
+ data : lt_return TYPE TABLE OF BAPIRET2.
+ data : ls_return TYPE BAPIRET2.
+
+ data : ls_te_mara TYPE BAPI_TE_MARA.
+ data : ls_te_marax TYPE BAPI_TE_MARAX.
+
+ data : lt_extensionin TYPE TABLE OF BAPIPAREX,
+        ls_extensionin TYPE BAPIPAREX.
+ data : lt_extensioninx TYPE TABLE OF BAPIPAREXX,
+        ls_extensioninx TYPE BAPIPAREXX.
+
+
+
+AT SELECTION-SCREEN on VALUE-REQUEST FOR p_file..
+CALL FUNCTION 'F4_FILENAME'
+ EXPORTING
+   PROGRAM_NAME        = SYST-CPROG
+   DYNPRO_NUMBER       = SYST-DYNNR
+   FIELD_NAME          = ' '
+ IMPORTING
+   FILE_NAME           = p_file .
+
+
+START-OF-SELECTION.
+lv_file  = p_file.    " Explicit Type casting
+
+  CALL FUNCTION 'GUI_UPLOAD'
+    EXPORTING
+      FILENAME                      = lv_file
+*     FILETYPE                      = 'ASC'
+     HAS_FIELD_SEPARATOR           = 'X'
+*     HEADER_LENGTH                 = 0
+*     READ_BY_LINE                  = 'X'
+*     DAT_MODE                      = ' '
+*     CODEPAGE                      = ' '
+*     IGNORE_CERR                   = ABAP_TRUE
+*     REPLACEMENT                   = '#'
+*     CHECK_BOM                     = ' '
+*     VIRUS_SCAN_PROFILE            =
+*     NO_AUTH_CHECK                 = ' '
+*   IMPORTING
+*     FILELENGTH                    =
+*     HEADER                        =
+    TABLES
+      DATA_TAB                      = lt_data
+*   CHANGING
+*     ISSCANPERFORMED               = ' '
+   EXCEPTIONS
+     FILE_OPEN_ERROR               = 1
+     FILE_READ_ERROR               = 2
+     NO_BATCH                      = 3
+     GUI_REFUSE_FILETRANSFER       = 4
+     INVALID_TYPE                  = 5
+     NO_AUTHORITY                  = 6
+     UNKNOWN_ERROR                 = 7
+     BAD_DATA_FORMAT               = 8
+     HEADER_NOT_ALLOWED            = 9
+     SEPARATOR_NOT_ALLOWED         = 10
+     HEADER_TOO_LONG               = 11
+     UNKNOWN_DP_ERROR              = 12
+     ACCESS_DENIED                 = 13
+     DP_OUT_OF_MEMORY              = 14
+     DISK_FULL                     = 15
+     DP_TIMEOUT                    = 16
+     OTHERS                        = 17
+            .
+  IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+  ENDIF.
+
+  LOOP AT lt_data INTO ls_data.
+
+    ls_headdata-MATERIAL = ls_data-matnr.
+    ls_headdata-IND_SECTOR = ls_data-mbrsh.
+    ls_headdata-MATL_TYPE = ls_data-mtart.
+    ls_headdata-BASIC_VIEW =  'X'.
+
+    ls_clientdata-BASE_UOM = ls_data-meins.
+    ls_clientdatax-BASE_UOM = 'X'.
+
+    ls_desc-LANGU = sy-langu.
+    ls_desc-MATL_DESC = ls_data-maktx.
+    append ls_desc to lt_desc.
+    clear : ls_desc.
+
+    " Custom Fields
+
+    ls_te_mara-material = ls_data-matnr.
+    ls_te_mara-zzsystem = ls_data-zzsystem.
+    ls_te_mara-zzmtype = ls_data-zzmtype.
+
+    ls_te_marax-MATERIAL = ls_data-matnr.
+    ls_te_marax-zzsystem = 'X'.
+    ls_te_marax-zzmtype =  'X'.
+
+    ls_extensionin-structure = 'BAPI_TE_MARA'.
+    ls_extensionin-VALUEPART1 = ls_te_mara.
+    APPEND ls_extensionin to lt_extensionin.
+    Clear : ls_extensionin.
+
+    ls_extensioninx-structure = 'BAPI_TE_MARAX'.
+    ls_extensioninx-VALUEPART1 = ls_te_marax.
+    APPEND ls_extensioninx to lt_extensioninx.
+    Clear : ls_extensioninx.
+
+
+
+    CALL FUNCTION 'BAPI_MATERIAL_SAVEDATA'
+      EXPORTING
+        HEADDATA                   = ls_headdata
+       CLIENTDATA                 =  ls_clientdata
+       CLIENTDATAX                =  ls_clientdatax
+*       PLANTDATA                  =
+*       PLANTDATAX                 =
+*       FORECASTPARAMETERS         =
+*       FORECASTPARAMETERSX        =
+*       PLANNINGDATA               =
+*       PLANNINGDATAX              =
+*       STORAGELOCATIONDATA        =
+*       STORAGELOCATIONDATAX       =
+*       VALUATIONDATA              =
+*       VALUATIONDATAX             =
+*       WAREHOUSENUMBERDATA        =
+*       WAREHOUSENUMBERDATAX       =
+*       SALESDATA                  =
+*       SALESDATAX                 =
+*       STORAGETYPEDATA            =
+*       STORAGETYPEDATAX           =
+*       FLAG_ONLINE                = ' '
+*       FLAG_CAD_CALL              = ' '
+*       NO_DEQUEUE                 = ' '
+*       NO_ROLLBACK_WORK           = ' '
+     IMPORTING
+       RETURN                     = ls_return
+     TABLES
+       MATERIALDESCRIPTION        =  lt_desc
+*       UNITSOFMEASURE             =
+*       UNITSOFMEASUREX            =
+*       INTERNATIONALARTNOS        =
+*       MATERIALLONGTEXT           =
+*       TAXCLASSIFICATIONS         =
+*       RETURNMESSAGES             =
+*       PRTDATA                    =
+*       PRTDATAX                   =
+       EXTENSIONIN                =  lt_extensionin
+       EXTENSIONINX               =  lt_extensioninx
+              .
+  Append ls_return to lt_return.
+  clear : ls_return,ls_headdata,ls_clientdata,ls_clientdatax,
+          ls_te_mara, ls_te_marax.
+   Refresh : lt_desc, lt_extensionin, lt_extensioninx.
+  ENDLOOP.
+
+  LOOP AT lt_return INTO ls_return.
+  WRITE : / ls_return-message.
+  ENDLOOP.  
+
